@@ -13,7 +13,7 @@ import java.util.concurrent.TimeoutException;
 
 public class Consumer {
     private static Map<Integer, List<JsonObject>> map;
-    private static String HOST = "54.221.66.177";
+    private static String HOST = "172.31.22.134";
     private static int PORT = 5672;
     private static String USERNAME = "user";
     private static String PASSWORD = "password";
