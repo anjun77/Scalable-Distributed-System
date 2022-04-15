@@ -13,7 +13,7 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
 public class ChannelFactory extends BasePooledObjectFactory<Channel> {
     ConnectionFactory connectionFactory;
     Connection connection;
-    String HOST = "172.31.22.134";
+    String HOST = "172.31.18.40";
     int PORT = 5672;
     String USERNAME = "user";
     String PASSWORD = "password";

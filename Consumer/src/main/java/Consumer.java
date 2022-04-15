@@ -13,13 +13,13 @@ import java.util.concurrent.TimeoutException;
 
 public class Consumer {
     private static Map<Integer, List<JsonObject>> map;
-    private static String HOST = "172.31.22.134";
+    private static String HOST = "172.31.18.40";
     private static int PORT = 5672;
     private static String USERNAME = "user";
     private static String PASSWORD = "password";
     private static String QUEUE_NAME = "LiftRide";
     private static Gson gson;
-    private static int ThreadsNum = 4;
+    private static int ThreadsNum = 10;
 
   public static void main(String[] args) throws IOException, TimeoutException {
       map = new ConcurrentHashMap<>();
