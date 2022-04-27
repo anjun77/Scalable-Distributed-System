@@ -16,13 +16,14 @@ import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
 public class Consumer {
-    private static String RMQ_HOST = "172.31.1.65";
+    private static String RMQ_HOST = "172.31.12.98";
     private static int RMQ_PORT = 5672;
     private static String USERNAME = "user";
     private static String PASSWORD = "password";
     private static String QUEUE_NAME_SKIER = "SkierQueue";
-    private static String REDIS_HOST = "172.31.9.113";
+    private static String REDIS_HOST = "172.31.15.7";
     private static int REDIS_PORT = 6379;
+    private static String REDIS_PASSWORD = "password";
     private static Gson gson;
     private static int ThreadsNum = 256;
     private static JedisPool pool;
@@ -37,13 +38,15 @@ public class Consumer {
       connectionFactory.setPassword(PASSWORD);
       Connection connection = connectionFactory.newConnection();
 
-//      JedisPoolConfig config = new JedisPoolConfig();
+      JedisPoolConfig config = new JedisPoolConfig();
 //      config.setMaxTotal(512);
-//      config.setMaxWait(Duration.ofMillis(2000));
-//      config.setTestOnBorrow(true);
+      config.setMaxWait(Duration.ofMillis(2000));
+      config.setTestOnBorrow(true);
+      config.setTestWhileIdle(true);
+      config.setTestOnReturn(true);
 //      config.setBlockWhenExhausted(true);
 //
-      pool = new JedisPool(REDIS_HOST, REDIS_PORT);
+      pool = new JedisPool(config, REDIS_HOST, REDIS_PORT, 0, REDIS_PASSWORD);
 
       Runnable runnable = new Runnable() {
           @Override

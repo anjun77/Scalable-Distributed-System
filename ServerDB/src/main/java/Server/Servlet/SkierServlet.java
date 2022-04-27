@@ -17,6 +17,10 @@ import org.apache.commons.pool2.ObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPool;
 import org.apache.commons.lang3.concurrent.EventCountCircuitBreaker;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
+import redis.clients.jedis.Protocol;
 
 @WebServlet(name = "SkierServlet", value = "/skiers/*")
 public class SkierServlet extends HttpServlet {
@@ -29,6 +33,11 @@ public class SkierServlet extends HttpServlet {
     private static int NUM_CHANNELS = 128;
     private EventCountCircuitBreaker eventCountCircuitBreaker;
     private Gson gson = new Gson();
+
+    private static String REDIS_HOST = "172.31.15.7";
+    private static int REDIS_PORT = 6379;
+    private static String REDIS_PASSWORD = "password";
+    private static JedisPoolConfig config = new JedisPoolConfig();
 
     @Override
     public void init() {
@@ -56,21 +65,23 @@ public class SkierServlet extends HttpServlet {
         String[] urlParts = urlPath.split("/");
         if (isGetUrlValid(urlParts)) {
             setStatusAsValid(response);
+            JedisPool jedisPool = new JedisPool(config, REDIS_HOST, REDIS_PORT, Protocol.DEFAULT_TIMEOUT, REDIS_PASSWORD);
             if (handleDayVerticalForASkier(urlParts)) {
                 // /skiers/{resortID}/seasons/{seasonID}/days/{dayID}/skiers/{skierID}
-                int resortID = Integer.parseInt(urlParts[1]);
-                int seasonID = Integer.parseInt(urlParts[3]);
-                int dayID = Integer.parseInt(urlParts[5]);
-                int skierID = Integer.parseInt(urlParts[7]);
-                SkierDao skierDao = new SkierDao();
-                int dayVertical = skierDao.getDayVertical(resortID, seasonID, dayID, skierID);
+                // get the total vertical for the skier for the specified ski day
+                String resortID = urlParts[1];
+                String seasonID = urlParts[3];
+                String dayID = urlParts[5];
+                String skierID = urlParts[7];
+                int dayVertical = getDayVertical(jedisPool, resortID, seasonID, dayID, skierID);
                 response.getWriter().write("The total vertical for skier " + skierID
                     + " for the specified ski day " + dayID + " is " + dayVertical + " meters.");
             } else {
                 // /skiers/{skierID}/vertical
+                // get the total vertical for the skier the specified resort.
+                // If no season is specified, return all seasons
                 int skierID = Integer.parseInt(urlParts[1]);
-                SkierDao skierDao = new SkierDao();
-                int totalVertical = skierDao.getTotalVertical(skierID);
+                int totalVertical = getTotalVertical(jedisPool, skierID);
                 response.getWriter().write("The total vertical for skier " + skierID + " is "
                     + totalVertical + " meters.");
             }
@@ -189,5 +200,40 @@ public class SkierServlet extends HttpServlet {
         } else {
             return false;
         }
+    }
+
+    private int getDayVertical(JedisPool pool, String resortID, String seasonID, String dayID, String skierID) {
+        try (Jedis jedis = pool.getResource()) {
+            long length = jedis.llen(skierID);
+            int dayVertical = 0;
+            for (long index = 0; index < length; index++) {
+                String liftRide = jedis.lindex(skierID, index);
+                String[] parts = liftRide.split(",");
+                if (resortID.equals(parts[0]) && seasonID.equals(parts[1])
+                    && dayID.equals(parts[2])) {
+                    dayVertical += Integer.valueOf(parts[6]);
+                }
+            }
+            return dayVertical;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return -1;
+    }
+
+    public int getTotalVertical(JedisPool pool, int skierID) {
+        int totalVertical = 0;
+        String keyString = String.valueOf(skierID);
+        try (Jedis jedis = pool.getResource()) {
+            long length = jedis.llen(keyString);
+            for (long index = 0; index < length; index++) {
+                String liftRide = jedis.lindex(keyString, index);
+                String[] parts = liftRide.split(",");
+                totalVertical += Integer.valueOf(parts[6]);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return totalVertical;
     }
 }

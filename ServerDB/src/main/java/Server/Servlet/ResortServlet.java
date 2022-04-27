@@ -1,15 +1,34 @@
 package Server.Servlet;
 
+import Model.LiftRide;
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.rabbitmq.client.Channel;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
 import javax.servlet.*;
 import javax.servlet.http.*;
 import javax.servlet.annotation.*;
 import java.io.IOException;
+import org.apache.commons.lang3.concurrent.EventCountCircuitBreaker;
+import org.apache.commons.pool2.ObjectPool;
+import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
+import redis.clients.jedis.Protocol;
 
 @WebServlet(name = "ResortServlet", value="/resorts/*")
 
 public class ResortServlet extends HttpServlet {
+
+    private static String REDIS_HOST = "172.31.27.17";
+    private static int REDIS_PORT = 6379;
+    private static String REDIS_PASSWORD = "password";
+    private static JedisPoolConfig config = new JedisPoolConfig();
+
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException {
@@ -24,9 +43,7 @@ public class ResortServlet extends HttpServlet {
 
         //check we have a URL
         if (urlPath == null || urlPath.isEmpty()) {
-            setStatusAsValid(response);
-            String jsonData = gson.toJson("resort 7");
-            out.write(jsonData);
+            setStatusAsNotFound(response);
             return;
         }
 
@@ -36,9 +53,21 @@ public class ResortServlet extends HttpServlet {
             setStatusAsInvalid(response);
             return;
         } else {
-            setStatusAsValid(response);
-            String jsonData = gson.toJson("resort 7");
-            out.write(jsonData);
+            if (handleNumOfSkiersAtAResortSeasonDay(urlParts)) {
+                // resorts/{resortID}/seasons/{seasonID}/day/{dayID}/skiers
+                // get number of unique skiers at resort/season/day
+                JedisPool jedisPool = new JedisPool(config, REDIS_HOST, REDIS_PORT, Protocol.DEFAULT_TIMEOUT, REDIS_PASSWORD);
+                String resortID = urlParts[1];
+                String seasonID = urlParts[3];
+                String dayID = urlParts[5];
+                long uniqueSkier = getUniqueSkier(jedisPool, resortID, seasonID, dayID);
+                response.getWriter().write("There are " + uniqueSkier + " skiers at resort " + resortID
+                    + " during season " + seasonID + " day " + dayID);
+            } else {
+                setStatusAsValid(response);
+                String jsonData = gson.toJson("resort 7");
+                out.write(jsonData);
+            }
         }
     }
 
@@ -117,5 +146,17 @@ public class ResortServlet extends HttpServlet {
         boolean intMatch = IntHelper.isInteger(urlParts[1]) && IntHelper.isInteger(urlParts[3])
             && IntHelper.isInteger(urlParts[5]);
         return wordsMatch && intMatch;
+    }
+
+    public long getUniqueSkier(JedisPool pool, String resortID, String seasonID, String dayID) {
+        try {
+            Jedis jedis = pool.getResource();
+            String key = resortID + "/" + seasonID + "/" + dayID;
+            long uniqueCount = jedis.scard(key);
+            return uniqueCount;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return -1;
     }
 }

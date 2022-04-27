@@ -28,9 +28,9 @@ public class NewThread2 extends Thread{
   private CountDownLatch curLatch;
 
   private Queue<PostRecord> recordList;
-  private static final int RESORT_ID = 1;
+  private static final int RESORT_ID = 15;
   private static final String SEASON_ID = "2021";
-  private static final String DAY_ID = "7";
+  private static final String DAY_ID = "3";
 
 
   public NewThread2(int phaseNum, int startSkierId, int endSkierId, int liftId, int startTime,

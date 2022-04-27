@@ -16,13 +16,14 @@ import redis.clients.jedis.JedisPoolConfig;
 import redis.clients.jedis.Protocol;
 
 public class Consumer {
-    private static String RMQ_HOST = "172.31.1.65";
+    private static String RMQ_HOST = "172.31.12.98";
     private static int RMQ_PORT = 5672;
     private static String USERNAME = "user";
     private static String PASSWORD = "password";
     private static String QUEUE_NAME_RESORT = "ResortQueue";
-    private static String REDIS_HOST = "172.31.0.129";
+    private static String REDIS_HOST = "172.31.27.17";
     private static int REDIS_PORT = 6379;
+    private static String REDIS_PASSWORD = "password";
     private static Gson gson;
     private static int ThreadsNum = 256;
     private static JedisPool pool;
@@ -43,7 +44,9 @@ public class Consumer {
 //      config.setTestOnBorrow(true);
 //      config.setBlockWhenExhausted(true);
 //
-      pool = new JedisPool(REDIS_HOST, REDIS_PORT);
+      JedisPoolConfig config = new JedisPoolConfig();
+      pool = new JedisPool(config, REDIS_HOST, REDIS_PORT, Protocol.DEFAULT_TIMEOUT, REDIS_PASSWORD);
+
 
       Runnable runnable = new Runnable() {
           @Override
@@ -65,10 +68,8 @@ public class Consumer {
                       String waitTime = String.valueOf(liftRecord.get("waitTime"));
                       String vertical = String.valueOf(liftRecord.get("vertical"));
 
-                      String value =
-                          skierID + "," + liftID + "," + resortID + "," + seasonID + ","
-                              + time + "," + waitTime + "," + vertical;
-                      jedis.lpush(dayID, value);
+                      String key = resortID + "/" + seasonID + "/" + dayID;
+                      jedis.sadd(key, skierID);
 //                      try {
 //                          TimeUnit.SECONDS.sleep(10);
 //                      } catch (InterruptedException e) {
